@@ -32,7 +32,7 @@ def download_model_from_server():
     """Download model from your web server"""
     base_url = "https://wasteclass.confeman.net/model/"
     files = {
-        'pytorch_model.bin': 'pytorch_model.bin',
+        'model.safetensors': 'model.safetensors',  # Changed from pytorch_model.bin
         'config.json': 'config.json',
         'label_encoder.pkl': 'label_encoder.pkl',
         'tokenizer_config.json': 'tokenizer_config.json',
