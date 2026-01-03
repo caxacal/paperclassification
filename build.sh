@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
 echo "Build starting..."
-mkdir -p model
+echo "Python version:"
+python --version
+
+echo "Installing dependencies..."
+pip install -r requirements.txt
+
 echo "Build completed!"
