@@ -25,29 +25,31 @@ tokenizer = None
 model = None
 label_encoder = None
 
-# ---------- Download model files ----------
-def download_model_from_drive():
-    """Download model files from Google Drive using file IDs."""
+import os
+import urllib.request
+
+def download_model_from_server():
+    """Download model from your web server"""
+    base_url = "https://wasteclass.confeman.net/model/"
     files = {
-        'model.safetensors': '1dchdkuECFfH148FQYXs3t1sIs-MsjEUw',
-        'config.json': '1uVBSx0bUjusg5gmwQMZdbp4K8wJcgrjt',
-        'tokenizer.json': '1BgiG333tiuAgRSOc_yQ8CcUQeW3MiCZe',
-        'vocab.txt': '1ya4bnH9IYBHdOoxouOvnx4J7H6T6BXrI',
-        'tokenizer_config.json': '1HYMmiACJEmEKef9d_rgxL1XNzSlOKnvT',
-        'special_tokens_map.json': '1NX1Ms_DA5Rhxe2Epz1rEHU5zpmscZqZo',
-        'label_encoder.pkl': '17c7jMT8sWpJNKwBuMxLCDsOiSwMvwGL_'
+        'pytorch_model.bin': 'pytorch_model.bin',
+        'config.json': 'config.json',
+        'label_encoder.pkl': 'label_encoder.pkl',
+        'tokenizer_config.json': 'tokenizer_config.json',
+        'vocab.txt': 'vocab.txt'
     }
+    
+    os.makedirs('./model', exist_ok=True)
+    
+    for filename in files:
+        if not os.path.exists(f'./model/{filename}'):
+            print(f"Downloading {filename}...")
+            url = base_url + filename
+            urllib.request.urlretrieve(url, f'./model/{filename}')
+            print(f"Downloaded {filename}")
 
-    os.makedirs(MODEL_PATH, exist_ok=True)
-
-    for filename, file_id in files.items():
-        output_path = os.path.join(MODEL_PATH, filename)
-        if not os.path.exists(output_path):
-            url = f'https://drive.google.com/uc?id={file_id}'
-            logger.info(f'Downloading {filename}...')
-            gdown.download(url, output_path, quiet=False)
-        else:
-            logger.info(f'{filename} already exists. Skipping.')
+# Call this before loading model
+download_model_from_server()
 
 # ---------- Load model ----------
 def load_model():
