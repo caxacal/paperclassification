@@ -1,16 +1,26 @@
 from flask import Flask, request, jsonify
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import pickle
 import os
 import logging
 from functools import lru_cache
-from huggingface_hub import hf_hub_download
 
 # ---------- Configuration ----------
 MODEL_ID = "caxacal/article-classifier-model"
-HF_TOKEN = os.environ.get("HF_TOKEN")  # REQUIRED
+HF_TOKEN = os.environ.get("HF_TOKEN")  # REQUIRED for private repo
 API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
+
+# 🔴 HARD-CODED LABELS (ORDER MUST MATCH TRAINING)
+CLASSES = [
+    "AI & Learning Systems",
+    "Bioinformatics",
+    "Business & Information Systems",
+    "Educational Technologies",
+    "Media, Interfaces & Applications",
+    "Networked & Distributed Systems",
+    "Security & Privacy",
+    "Software & Systems Engineering"
+]
 
 # ---------- Logging ----------
 logging.basicConfig(level=logging.INFO)
@@ -23,18 +33,15 @@ app = Flask(__name__)
 device = None
 tokenizer = None
 model = None
-label_encoder = None
 model_loaded = False
-
-
 
 
 # ---------- Load Model ----------
 def load_model():
-    global device, tokenizer, model, label_encoder, model_loaded
+    global device, tokenizer, model, model_loaded
 
     try:
-        logger.info("Loading model and tokenizer from Hugging Face (no disk)...")
+        logger.info("Loading model from Hugging Face (no pickle, no disk)...")
 
         if not HF_TOKEN:
             raise RuntimeError("HF_TOKEN environment variable is missing")
@@ -44,29 +51,19 @@ def load_model():
 
         tokenizer = AutoTokenizer.from_pretrained(
             MODEL_ID,
-            token=HF_TOKEN
+            use_auth_token=HF_TOKEN
         )
 
         model = AutoModelForSequenceClassification.from_pretrained(
             MODEL_ID,
-            token=HF_TOKEN
+            use_auth_token=HF_TOKEN
         )
 
         model.to(device)
         model.eval()
 
-        # Download label encoder from HF (no cache_dir)
-        label_encoder_path = hf_hub_download(
-            repo_id=MODEL_ID,
-            filename="label_encoder.pkl",
-            token=HF_TOKEN
-        )
-
-        with open(label_encoder_path, "rb") as f:
-            label_encoder = pickle.load(f)
-
         logger.info("Model loaded successfully")
-        logger.info(f"Categories: {list(label_encoder.classes_)}")
+        logger.info(f"Classes: {CLASSES}")
 
         model_loaded = True
 
@@ -96,9 +93,8 @@ def cached_prediction(text):
 
     results = []
     for prob, idx in zip(top_probs, top_indices):
-        category = label_encoder.inverse_transform([idx.item()])[0]
         results.append({
-            "category": category,
+            "category": CLASSES[idx.item()],
             "confidence": float(prob.item())
         })
 
@@ -113,7 +109,7 @@ def home():
         "service": "PSITE Abstract Classifier API",
         "version": "1.0",
         "model_loaded": model_loaded,
-        "categories": list(label_encoder.classes_) if model_loaded else []
+        "categories": CLASSES if model_loaded else []
     })
 
 
