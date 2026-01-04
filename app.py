@@ -11,6 +11,9 @@ HF_TOKEN = os.environ.get("HF_TOKEN")  # REQUIRED for private repo
 API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
 MAX_TOKENS = 128
 
+os.environ["HF_HOME"] = "/data/huggingface"
+os.environ["TRANSFORMERS_CACHE"] = "/data/huggingface"
+os.environ["HF_HUB_CACHE"] = "/data/huggingface"
 
 # 🔴 HARD-CODED LABELS (ORDER MUST MATCH TRAINING)
 CLASSES = [
