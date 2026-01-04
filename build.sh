@@ -1,13 +1,4 @@
 #!/usr/bin/env bash
+set -e
 
-echo "Build starting..."
-echo "Python version:"
-python --version
-
-echo "Upgrading pip..."
-python -m pip install --upgrade pip
-
-echo "Installing dependencies..."
-pip install -r requirements.txt
-
-echo "Build completed!"
+echo "Build step completed."
