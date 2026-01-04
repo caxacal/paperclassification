@@ -59,18 +59,39 @@ def load_model():
         logger.info("Loading model and tokenizer...")
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
+        # Check if model files exist
+        if not os.path.exists(MODEL_PATH):
+            logger.error(f"Model path {MODEL_PATH} does not exist")
+            return False
+            
+        # Check for model.safetensors
+        safetensors_path = os.path.join(MODEL_PATH, 'model.safetensors')
+        if not os.path.exists(safetensors_path):
+            logger.error(f"Model file not found: {safetensors_path}")
+            return False
+        
+        # Load tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
         model.to(device)
         model.eval()
-
-        with open(os.path.join(MODEL_PATH, 'label_encoder.pkl'), 'rb') as f:
+        
+        # Load label encoder
+        label_encoder_path = os.path.join(MODEL_PATH, 'label_encoder.pkl')
+        if not os.path.exists(label_encoder_path):
+            logger.error(f"Label encoder not found: {label_encoder_path}")
+            return False
+            
+        with open(label_encoder_path, 'rb') as f:
             label_encoder = pickle.load(f)
-
-        logger.info(f"Model loaded. Categories: {list(label_encoder.classes_)}")
+            
+        logger.info(f"Model loaded successfully on {device}")
+        logger.info(f"Categories: {list(label_encoder.classes_)}")
         return True
+        
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         return False
 
 # Run downloads and load model
