@@ -2,9 +2,6 @@ flask==2.3.2
 gunicorn==20.1.0
 torch==2.0.1
 transformers==4.35.0
-numpy==1.24.4  # Updated from 1.24.3
-scikit-learn==1.3.0
-gdown==4.7.1
-safetensors==0.3.1  # Add this for safetensors support
 huggingface-hub==0.16.4
-
+safetensors==0.3.1
+numpy==1.24.4
