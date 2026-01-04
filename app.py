@@ -34,7 +34,7 @@ MODEL_PATH = './model'  # or os.path.join(os.getcwd(), 'model')
 def download_model_from_server():
     """Download model from your web server via PHP"""
     try:
-        base_url = "https://www.article-classifier.xyz/download.php?file="
+        base_url = "https://article-classifier.xyz/download.php?file="
         files = ['model.safetensors', 'config.json', 'label_encoder.pkl', 
                  'tokenizer_config.json', 'vocab.txt']
         
