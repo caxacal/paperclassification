@@ -30,7 +30,7 @@ import urllib.request
 
 def download_model_from_server():
     """Download model from your web server"""
-    base_url = "https://wasteclass.confeman.net/model/"
+    base_url = "https://wasteclass.confeman.net/"
     files = {
         'model.safetensors': 'model.safetensors',  # Changed from pytorch_model.bin
         'config.json': 'config.json',
