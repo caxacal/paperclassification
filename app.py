@@ -28,6 +28,9 @@ label_encoder = None
 import os
 import urllib.request
 
+# At the top of your app.py, make sure MODEL_PATH is defined
+MODEL_PATH = './model'  # or os.path.join(os.getcwd(), 'model')
+
 def download_model_from_server():
     """Download model from your web server via PHP"""
     try:
@@ -35,15 +38,29 @@ def download_model_from_server():
         files = ['model.safetensors', 'config.json', 'label_encoder.pkl', 
                  'tokenizer_config.json', 'vocab.txt']
         
-        os.makedirs('./model', exist_ok=True)
+        # Use MODEL_PATH consistently
+        os.makedirs(MODEL_PATH, exist_ok=True)
         
         for filename in files:
-            if not os.path.exists(f'./model/{filename}'):
+            filepath = os.path.join(MODEL_PATH, filename)
+            if not os.path.exists(filepath):
                 print(f"Downloading {filename}...")
                 url = base_url + filename
-                urllib.request.urlretrieve(url, f'./model/{filename}')
-                print(f"Downloaded {filename}")
+                urllib.request.urlretrieve(url, filepath)
+                print(f"Downloaded {filename} to {filepath}")
+            else:
+                print(f"{filename} already exists, skipping download")
+        
+        # Verify all files were downloaded
+        for filename in files:
+            filepath = os.path.join(MODEL_PATH, filename)
+            if not os.path.exists(filepath):
+                print(f"ERROR: {filename} not found after download")
+                return False
+                
+        print("All model files downloaded successfully")
         return True
+        
     except Exception as e:
         print(f"Failed to download models: {e}")
         return False
