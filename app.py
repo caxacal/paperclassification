@@ -9,6 +9,8 @@ from functools import lru_cache
 MODEL_ID = "caxacal/article-classifier-model"
 HF_TOKEN = os.environ.get("HF_TOKEN")  # REQUIRED for private repo
 API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
+MAX_TOKENS = 128
+
 
 # 🔴 HARD-CODED LABELS (ORDER MUST MATCH TRAINING)
 CLASSES = [
@@ -123,42 +125,28 @@ def health():
 
 @app.route("/classify", methods=["POST"])
 def classify():
-    try:
-        if not model_loaded:
-            return jsonify({"error": "Model not loaded"}), 503
+    data = request.get_json()
+    abstract = data.get("abstract", "").strip()
 
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer ") or auth_header[7:] != API_KEY:
-            return jsonify({"error": "Invalid API key"}), 401
+    if not abstract:
+        return jsonify({"error": "No abstract provided"}), 400
 
-        data = request.get_json()
-        abstract = data.get("abstract", "").strip()
+    if len(abstract.split()) > 300:
+        return jsonify({"error": "Abstract too long (max 300 words)"}), 400
 
-        if not abstract:
-            return jsonify({"error": "No abstract provided"}), 400
-        if len(abstract) < 50:
-            return jsonify({"error": "Abstract too short (min 50 characters)"}), 400
+    inputs = tokenizer(
+        abstract,
+        truncation=True,
+        max_length=MAX_TOKENS,
+        padding="max_length",
+        return_tensors="pt"
+    )
+    inputs = {k: v.to(device) for k, v in inputs.items()}
 
-        predictions = cached_prediction(abstract[:5000])
+    with torch.no_grad():
+        outputs = model(**inputs)
+        probs = torch.softmax(outputs.logits, dim=-1)
 
-        confidence = predictions[0]["confidence"]
-        confidence_level = (
-            "high" if confidence > 0.8
-            else "medium" if confidence > 0.6
-            else "low"
-        )
-
-        return jsonify({
-            "success": True,
-            "primary_category": predictions[0]["category"],
-            "confidence": confidence,
-            "confidence_level": confidence_level,
-            "all_predictions": predictions
-        })
-
-    except Exception as e:
-        logger.error(f"Classification error: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
 
 # ---------- Run ----------
