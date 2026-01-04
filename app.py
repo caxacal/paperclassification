@@ -74,7 +74,7 @@ def load_model():
         return False
 
 # Run downloads and load model
-download_model_from_drive()
+#download_model_from_drive()
 model_loaded = load_model()
 
 # ---------- Prediction cache ----------
