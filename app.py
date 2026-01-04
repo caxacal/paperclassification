@@ -5,12 +5,13 @@ import pickle
 import os
 import logging
 from functools import lru_cache
+from huggingface_hub import hf_hub_download
 
 # ---------- Configuration ----------
 MODEL_ID = "caxacal/article-classifier-model"
-HF_TOKEN = os.environ.get("HF_TOKEN")  # set in Render env vars
+HF_TOKEN = os.environ.get("HF_TOKEN")  # set in Render
 API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
-CACHE_DIR = "/data/hf_cache"  # Render persistent disk (optional but recommended)
+CACHE_DIR = "/data/hf_cache"  # Render persistent disk (optional)
 
 # ---------- Logging ----------
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +34,7 @@ def load_model():
 
     try:
         logger.info("Loading model and tokenizer from Hugging Face...")
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -50,25 +52,18 @@ def load_model():
         model.to(device)
         model.eval()
 
-        # Load label encoder from repo
-        label_encoder_path = os.path.join(
-            tokenizer.cache_dir,
-            "models--caxacal--article-classifier-model",
-            "snapshots"
+        # ✅ Download label_encoder.pkl correctly
+        label_encoder_path = hf_hub_download(
+            repo_id=MODEL_ID,
+            filename="label_encoder.pkl",
+            token=HF_TOKEN,
+            cache_dir=CACHE_DIR
         )
 
-        # Find snapshot directory dynamically
-        snapshot = next(os.walk(label_encoder_path))[1][0]
-        label_encoder_file = os.path.join(
-            label_encoder_path,
-            snapshot,
-            "label_encoder.pkl"
-        )
-
-        with open(label_encoder_file, "rb") as f:
+        with open(label_encoder_path, "rb") as f:
             label_encoder = pickle.load(f)
 
-        logger.info(f"Model loaded successfully on {device}")
+        logger.info("Model loaded successfully")
         logger.info(f"Categories: {list(label_encoder.classes_)}")
 
         model_loaded = True
@@ -114,7 +109,6 @@ def home():
     return jsonify({
         "status": "active",
         "service": "PSITE Abstract Classifier API",
-        "version": "1.0",
         "model_loaded": model_loaded,
         "categories": list(label_encoder.classes_) if model_loaded else []
     })
