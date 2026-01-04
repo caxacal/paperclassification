@@ -26,6 +26,18 @@ model = None
 label_encoder = None
 model_loaded = False
 
+# Add this import at the top
+import sys
+
+# Add this before loading pickle
+if 'numpy._core' not in sys.modules:
+    import numpy
+    sys.modules['numpy._core'] = numpy.core
+
+# Then your existing pickle load should work
+with open(label_encoder_path, "rb") as f:
+    label_encoder = pickle.load(f)
+
 
 # ---------- Load Model ----------
 def load_model():
