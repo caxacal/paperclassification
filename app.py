@@ -29,24 +29,24 @@ import os
 import urllib.request
 
 def download_model_from_server():
-    """Download model from your web server"""
-    base_url = "https://confeman.net/model/"
-    files = {
-        'model.safetensors': 'model.safetensors',  # Changed from pytorch_model.bin
-        'config.json': 'config.json',
-        'label_encoder.pkl': 'label_encoder.pkl',
-        'tokenizer_config.json': 'tokenizer_config.json',
-        'vocab.txt': 'vocab.txt'
-    }
-    
-    os.makedirs('./model', exist_ok=True)
-    
-    for filename in files:
-        if not os.path.exists(f'./model/{filename}'):
-            print(f"Downloading {filename}...")
-            url = base_url + filename
-            urllib.request.urlretrieve(url, f'./model/{filename}')
-            print(f"Downloaded {filename}")
+    """Download model from your web server via PHP"""
+    try:
+        base_url = "https://confeman.net/download.php?file="
+        files = ['model.safetensors', 'config.json', 'label_encoder.pkl', 
+                 'tokenizer_config.json', 'vocab.txt']
+        
+        os.makedirs('./model', exist_ok=True)
+        
+        for filename in files:
+            if not os.path.exists(f'./model/{filename}'):
+                print(f"Downloading {filename}...")
+                url = base_url + filename
+                urllib.request.urlretrieve(url, f'./model/{filename}')
+                print(f"Downloaded {filename}")
+        return True
+    except Exception as e:
+        print(f"Failed to download models: {e}")
+        return False
 
 # Call this before loading model
 download_model_from_server()
