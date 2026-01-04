@@ -9,9 +9,8 @@ from huggingface_hub import hf_hub_download
 
 # ---------- Configuration ----------
 MODEL_ID = "caxacal/article-classifier-model"
-HF_TOKEN = os.environ.get("HF_TOKEN")  # set in Render
+HF_TOKEN = os.environ.get("HF_TOKEN")  # REQUIRED
 API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
-CACHE_DIR = "/data/hf_cache"  # Render persistent disk (optional)
 
 # ---------- Logging ----------
 logging.basicConfig(level=logging.INFO)
@@ -33,31 +32,32 @@ def load_model():
     global device, tokenizer, model, label_encoder, model_loaded
 
     try:
-        logger.info("Loading model and tokenizer from Hugging Face...")
+        logger.info("Loading model and tokenizer from Hugging Face (no disk)...")
+
+        if not HF_TOKEN:
+            raise RuntimeError("HF_TOKEN environment variable is missing")
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Using device: {device}")
 
         tokenizer = AutoTokenizer.from_pretrained(
             MODEL_ID,
-            token=HF_TOKEN,
-            cache_dir=CACHE_DIR
+            token=HF_TOKEN
         )
 
         model = AutoModelForSequenceClassification.from_pretrained(
             MODEL_ID,
-            token=HF_TOKEN,
-            cache_dir=CACHE_DIR
+            token=HF_TOKEN
         )
 
         model.to(device)
         model.eval()
 
-        # ✅ Download label_encoder.pkl correctly
+        # Download label encoder from HF (no cache_dir)
         label_encoder_path = hf_hub_download(
             repo_id=MODEL_ID,
             filename="label_encoder.pkl",
-            token=HF_TOKEN,
-            cache_dir=CACHE_DIR
+            token=HF_TOKEN
         )
 
         with open(label_encoder_path, "rb") as f:
@@ -69,7 +69,7 @@ def load_model():
         model_loaded = True
 
     except Exception as e:
-        logger.error(f"Failed to load model: {e}")
+        logger.exception("MODEL LOAD FAILED")
         model_loaded = False
 
 
@@ -109,6 +109,7 @@ def home():
     return jsonify({
         "status": "active",
         "service": "PSITE Abstract Classifier API",
+        "version": "1.0",
         "model_loaded": model_loaded,
         "categories": list(label_encoder.classes_) if model_loaded else []
     })
