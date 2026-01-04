@@ -29,7 +29,7 @@ import os
 import urllib.request
 
 # At the top of your app.py, make sure MODEL_PATH is defined
-MODEL_PATH = './model'  # or os.path.join(os.getcwd(), 'model')
+MODEL_PATH = 'https://article-classifier.xyz/model'  # or os.path.join(os.getcwd(), 'model')
 
 def download_model_from_server():
     """Download model from your web server via PHP"""
