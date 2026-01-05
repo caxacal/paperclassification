@@ -57,17 +57,25 @@ def predict(text: str):
         return_tensors="np"
     )
 
+    # ✅ Ensure token_type_ids exist
+    if "token_type_ids" not in tokens:
+        tokens["token_type_ids"] = np.zeros_like(tokens["input_ids"])
+
     inputs = {
         "input_ids": tokens["input_ids"],
-        "attention_mask": tokens["attention_mask"]
+        "attention_mask": tokens["attention_mask"],
+        "token_type_ids": tokens["token_type_ids"]
     }
 
     logits = session.run(None, inputs)[0][0]
-    probs = softmax(logits)
+
+    # Softmax
+    exp = np.exp(logits - np.max(logits))
+    probs = exp / exp.sum()
 
     top_idx = probs.argsort()[-3:][::-1]
 
-    results = [
+    return [
         {
             "category": CLASSES[i],
             "confidence": float(probs[i])
@@ -75,7 +83,6 @@ def predict(text: str):
         for i in top_idx
     ]
 
-    return results
 
 # ---------------- ROUTES ----------------
 @app.route("/", methods=["GET"])
