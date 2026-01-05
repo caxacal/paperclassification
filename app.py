@@ -1,5 +1,9 @@
 from flask import Flask, request, jsonify
 import torch
+
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import os
 import logging
