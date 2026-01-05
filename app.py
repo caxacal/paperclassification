@@ -1,25 +1,14 @@
 from flask import Flask, request, jsonify
-import torch
-
+import onnxruntime as ort
+import numpy as np
+from transformers import AutoTokenizer
 import os
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import os
-import logging
-from functools import lru_cache
-
-# ---------- Configuration ----------
-MODEL_ID = "caxacal/article-classifier-model"
-HF_TOKEN = os.environ.get("HF_TOKEN")  # REQUIRED for private repo
+# ---------- CONFIG ----------
+MODEL_DIR = "./onnx_model"
 API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
 MAX_TOKENS = 128
 
-os.environ["HF_HOME"] = "/data/huggingface"
-os.environ["TRANSFORMERS_CACHE"] = "/data/huggingface"
-os.environ["HF_HUB_CACHE"] = "/data/huggingface"
-
-# 🔴 HARD-CODED LABELS (ORDER MUST MATCH TRAINING)
 CLASSES = [
     "AI & Learning Systems",
     "Bioinformatics",
@@ -31,144 +20,53 @@ CLASSES = [
     "Software & Systems Engineering"
 ]
 
-# ---------- Logging ----------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ---------- Flask App ----------
+# ---------- LOAD ----------
 app = Flask(__name__)
 
-# ---------- Globals ----------
-device = None
-tokenizer = None
-model = None
-model_loaded = False
+tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
+session = ort.InferenceSession(
+    os.path.join(MODEL_DIR, "model.onnx"),
+    providers=["CPUExecutionProvider"]
+)
 
+input_names = [i.name for i in session.get_inputs()]
 
-# ---------- Load Model ----------
-def load_model():
-    global device, tokenizer, model, model_loaded
-
-    try:
-        logger.info("Loading model from Hugging Face (no pickle, no disk)...")
-
-        if not HF_TOKEN:
-            raise RuntimeError("HF_TOKEN environment variable is missing")
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Using device: {device}")
-
-        tokenizer = AutoTokenizer.from_pretrained(
-            MODEL_ID,
-            use_auth_token=HF_TOKEN
-        )
-
-        model = AutoModelForSequenceClassification.from_pretrained(
-            MODEL_ID,
-            use_auth_token=HF_TOKEN
-        )
-
-        model.to(device)
-        model.eval()
-
-        logger.info("Model loaded successfully")
-        logger.info(f"Classes: {CLASSES}")
-
-        model_loaded = True
-
-    except Exception as e:
-        logger.exception("MODEL LOAD FAILED")
-        model_loaded = False
-
-
-load_model()
-
-
-
-# ---------- Prediction Cache ----------
-@lru_cache(maxsize=1000)
-def cached_prediction(text):
-    inputs = tokenizer(
-        text,
-        truncation=True,
-        max_length=MAX_TOKENS,
-        padding="max_length",
-        return_tensors="pt"
-    )
-    inputs = {k: v.to(device) for k, v in inputs.items()}
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probs = torch.softmax(outputs.logits, dim=-1)
-
-    top_probs, top_indices = torch.topk(probs[0], k=min(3, probs.shape[-1]))
-
-    results = []
-    for prob, idx in zip(top_probs, top_indices):
-        results.append({
-            "category": CLASSES[idx.item()],
-            "confidence": float(prob.item())
-        })
-
-    return results
-
-
-
-# ---------- Routes ----------
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({
-        "status": "active",
-        "service": "PSITE Abstract Classifier API",
-        "version": "1.0",
-        "model_loaded": model_loaded,
-        "categories": CLASSES if model_loaded else []
-    })
-
-
+# ---------- ROUTES ----------
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "healthy",
-        "model_loaded": model_loaded
-    })
-
+    return jsonify({"status": "ok"})
 
 @app.route("/classify", methods=["POST"])
 def classify():
-    # 🔐 API KEY CHECK
-    client_key = request.headers.get("X-API-Key")
-    if client_key != API_KEY:
+    if request.headers.get("X-API-Key") != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
 
-    if not model_loaded:
-        return jsonify({"error": "Model not loaded"}), 503
-
     data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Invalid JSON"}), 400
+    text = (data.get("abstract") or data.get("text") or "").strip()
 
-    abstract = (data.get("abstract") or data.get("text") or "").strip()
-
-    if not abstract:
+    if not text:
         return jsonify({"error": "No abstract provided"}), 400
 
-    if len(abstract.split()) > 300:
-        return jsonify({"error": "Abstract too long (max 300 words)"}), 400
+    inputs = tokenizer(
+        text,
+        truncation=True,
+        padding="max_length",
+        max_length=MAX_TOKENS,
+        return_tensors="np"
+    )
 
-    results = cached_prediction(abstract)
+    ort_inputs = {k: inputs[k] for k in input_names}
+    logits = session.run(None, ort_inputs)[0]
+    probs = np.exp(logits) / np.sum(np.exp(logits), axis=-1, keepdims=True)
+
+    idx = int(np.argmax(probs))
+    confidence = float(probs[0][idx])
 
     return jsonify({
-        "prediction": results[0]["category"],
-        "confidence": results[0]["confidence"],
-        "top_k": results
+        "prediction": CLASSES[idx],
+        "confidence": confidence
     })
 
-
-
-
-
-# ---------- Run ----------
+# ---------- MAIN ----------
 if __name__ == "__main__":
-    print("Use Gunicorn to run this app")
-
+    app.run(host="0.0.0.0", port=10000)
