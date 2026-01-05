@@ -112,11 +112,7 @@ def cached_prediction(text):
 
     return results
 
-try:
-    cached_prediction("Warm up model for inference")
-    logger.info("Warm-up completed")
-except Exception:
-    logger.warning("Warm-up failed", exc_info=True)
+
 
 # ---------- Routes ----------
 @app.route("/", methods=["GET"])
