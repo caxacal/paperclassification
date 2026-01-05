@@ -85,10 +85,11 @@ def cached_prediction(text):
     inputs = tokenizer(
         text,
         truncation=True,
-        max_length=512,
-        padding=True,
+        max_length=MAX_TOKENS,
+        padding="max_length",
         return_tensors="pt"
-    ).to(device)
+    )
+    inputs = {k: v.to(device) for k, v in inputs.items()}
 
     with torch.no_grad():
         outputs = model(**inputs)
@@ -104,6 +105,7 @@ def cached_prediction(text):
         })
 
     return results
+
 
 
 # ---------- Routes ----------
@@ -128,8 +130,19 @@ def health():
 
 @app.route("/classify", methods=["POST"])
 def classify():
-    data = request.get_json()
-    abstract = data.get("abstract", "").strip()
+    # 🔐 API KEY CHECK
+    client_key = request.headers.get("X-API-Key")
+    if client_key != API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not model_loaded:
+        return jsonify({"error": "Model not loaded"}), 503
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    abstract = (data.get("abstract") or data.get("text") or "").strip()
 
     if not abstract:
         return jsonify({"error": "No abstract provided"}), 400
@@ -137,18 +150,15 @@ def classify():
     if len(abstract.split()) > 300:
         return jsonify({"error": "Abstract too long (max 300 words)"}), 400
 
-    inputs = tokenizer(
-        abstract,
-        truncation=True,
-        max_length=MAX_TOKENS,
-        padding="max_length",
-        return_tensors="pt"
-    )
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    results = cached_prediction(abstract)
 
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probs = torch.softmax(outputs.logits, dim=-1)
+    return jsonify({
+        "prediction": results[0]["category"],
+        "confidence": results[0]["confidence"],
+        "top_k": results
+    })
+
+
 
 
 
