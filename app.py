@@ -6,9 +6,11 @@ import onnxruntime as ort
 from transformers import AutoTokenizer
 
 # ---------------- CONFIG ----------------
-API_KEY = os.environ.get("API_KEY", "03b8d02ecf8c9898e960ecf2f4dcf287")
-MAX_TOKENS = 128
+API_KEY = os.environ.get("API_KEY")
+if not API_KEY:
+    raise RuntimeError("API_KEY is not configured")
 
+MAX_TOKENS = 128
 MODEL_DIR = "onnx_model"
 MODEL_PATH = os.path.join(MODEL_DIR, "model.onnx")
 
@@ -37,16 +39,14 @@ logger.info("Tokenizer loaded")
 
 # ---------------- LOAD ONNX MODEL ----------------
 logger.info("Loading ONNX model...")
-session = ort.InferenceSession(
-    MODEL_PATH,
-    providers=["CPUExecutionProvider"]
-)
-logger.info("ONNX model loaded")
+session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
+onnx_inputs = [i.name for i in session.get_inputs()]
+logger.info(f"ONNX inputs: {onnx_inputs}")
 
 # ---------------- UTIL ----------------
 def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum(axis=-1, keepdims=True)
+    e = np.exp(x - np.max(x))
+    return e / e.sum()
 
 def predict(text: str):
     tokens = tokenizer(
@@ -57,21 +57,19 @@ def predict(text: str):
         return_tensors="np"
     )
 
-    # ✅ Ensure token_type_ids exist
-    if "token_type_ids" not in tokens:
-        tokens["token_type_ids"] = np.zeros_like(tokens["input_ids"])
-
     inputs = {
         "input_ids": tokens["input_ids"],
-        "attention_mask": tokens["attention_mask"],
-        "token_type_ids": tokens["token_type_ids"]
+        "attention_mask": tokens["attention_mask"]
     }
 
-    logits = session.run(None, inputs)[0][0]
+    if "token_type_ids" in onnx_inputs:
+        inputs["token_type_ids"] = tokens.get(
+            "token_type_ids",
+            np.zeros_like(tokens["input_ids"])
+        )
 
-    # Softmax
-    exp = np.exp(logits - np.max(logits))
-    probs = exp / exp.sum()
+    logits = session.run(None, inputs)[0][0]
+    probs = softmax(logits)
 
     top_idx = probs.argsort()[-3:][::-1]
 
@@ -82,7 +80,6 @@ def predict(text: str):
         }
         for i in top_idx
     ]
-
 
 # ---------------- ROUTES ----------------
 @app.route("/", methods=["GET"])
@@ -100,8 +97,8 @@ def health():
 
 @app.route("/classify", methods=["POST"])
 def classify():
-    # API key check
-    if request.headers.get("X-API-Key") != API_KEY:
+    client_key = request.headers.get("X-API-KEY") or request.headers.get("X-API-Key")
+    if client_key != API_KEY:
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json(silent=True)
@@ -125,4 +122,4 @@ def classify():
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
-    logger.info("⚠️  Use Gunicorn on Render")
+    logger.info("Use Gunicorn on Render")
