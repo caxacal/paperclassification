@@ -13,14 +13,14 @@ MODEL_DIR = "onnx_model"
 MODEL_PATH = os.path.join(MODEL_DIR, "model.onnx")
 
 CLASSES = [
-    "AI & Learning Systems",
+    "AI and Intelligent Systems",
     "Bioinformatics",
-    "Business & Information Systems",
-    "Educational Technologies",
-    "Media, Interfaces & Applications",
-    "Networked & Distributed Systems",
-    "Security & Privacy",
-    "Software & Systems Engineering"
+    "Business and Information Systems",
+    "Educational Technology and Learning Systems",
+    "Interactive Media and Application Development",
+    "Networked and Distributed Systems",
+    "Cybersecurity and Information Assurance",
+    "Software Engineering and Systems Development"
 ]
 
 # ---------------- LOGGING ----------------
