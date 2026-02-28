@@ -4,6 +4,8 @@ import logging
 import numpy as np
 import onnxruntime as ort
 from transformers import AutoTokenizer
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
 
 # ---------------- CONFIG ----------------
 API_KEY = os.environ.get("API_KEY")
@@ -109,9 +111,27 @@ def classify():
     if not text:
         return jsonify({"error": "No abstract provided"}), 400
 
-    if len(text.split()) > 300:
+    if len(text.split()) > 1000:
         return jsonify({"error": "Abstract too long (max 300 words)"}), 400
 
+    if len(text.split()) < 20:
+        return jsonify({
+            "error": "Abstract too short for reliable classification"
+        }), 400
+
+    # 🔥 LANGUAGE DETECTION (NEW BLOCK)
+    try:
+        language = detect(text)
+    except LangDetectException:
+        return jsonify({"error": "Unable to detect language"}), 400
+
+    if language != "en":
+        return jsonify({
+            "error": "Only English abstracts are supported",
+            "detected_language": language
+        }), 400
+
+    # Continue with model prediction
     results = predict(text)
 
     return jsonify({
